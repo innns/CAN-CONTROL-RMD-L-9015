@@ -1,4 +1,4 @@
 # ESP32-CAN-CONTROL-RMD-L-9015
  ESP32-CAN-CONTROL-RMD-L-9015
 
-ESP32 CAN 控制 RMD-L-9015
+ESP32 CAN 控制 RMD-L-9015，把文档的通信协议翻译了成 `twai_message_t` 的格式
