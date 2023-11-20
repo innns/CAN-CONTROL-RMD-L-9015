@@ -3,7 +3,7 @@ import zlgcan
 zcanlib = zlgcan.ZCAN()
 
 
-def open_usbcan2(device_type=zlgcan.ZCAN_USBCAN1):
+def open_can(device_type=zlgcan.ZCAN_USBCAN1):
     global zcanlib
     device_handle = zcanlib.OpenDevice(device_type, 0, 0)
     if device_handle == zlgcan.INVALID_DEVICE_HANDLE:
@@ -78,7 +78,7 @@ class CanControlRMD():
 
     def __init__(self, device_type_=zlgcan.ZCAN_USBCAN1, channel=0):
         # open device and channel 0
-        self.dev_handle = open_usbcan2(device_type_)
+        self.dev_handle = open_can(device_type_)
         self.chn_handle = open_channel(self.dev_handle, channel)
         print("channel {} handle:{}.".format(channel, self.chn_handle))
 
