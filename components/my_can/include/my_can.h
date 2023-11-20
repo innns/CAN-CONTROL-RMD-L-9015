@@ -13,6 +13,14 @@ twai_message_t s1 = {
 #define _MY_CAN_H
 #include "driver/twai.h"
 #define STD_ID 0x140
+#define MOTION_STD_ID 0x400
+
+
+typedef struct
+{
+    uint8_t C_P, C_I, S_P, S_I, P_P, P_I;
+
+} MY_CAN_DATA;
 
 twai_message_t CAN_TorgueControl(uint8_t Motor_ID, int32_t iqControl);
 
@@ -26,9 +34,15 @@ twai_message_t Single_loop_angleControl_1(uint8_t Motor_ID, uint8_t spinDirectio
 
 twai_message_t Single_loop_angleControl_2(uint8_t Motor_ID, uint8_t spinDirection, uint16_t maxSpeed, uint16_t angleControl);
 
+twai_message_t Motion_Control(uint8_t Motor_ID, double p_des_, double v_des_, double kp_, double kd_, double t_ff_);
+
 twai_message_t Motor_Off(uint8_t Motor_ID);
 
 twai_message_t Get_PID_DATA(uint8_t Motor_ID);
 
 twai_message_t Set_PID_DATA(uint8_t Motor_ID, uint8_t C_P, uint8_t C_I, uint8_t S_P, uint8_t S_I, uint8_t P_P, uint8_t P_I, bool save2ROM);
+
+twai_message_t Get_Single_Angle_DATA(uint8_t Motor_ID);
+
+void Process_CAN_Recv_DATA();
 #endif //_MY_CAN_H

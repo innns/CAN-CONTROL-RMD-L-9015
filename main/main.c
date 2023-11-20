@@ -11,6 +11,8 @@
 #include "my_can.h"
 
 #define PI (3.14159265359)
+#define D2R(x) ((x) * PI / 180.0) // 角度转弧度
+#define R2D(x) ((x) * 180.0 / PI) // 弧度转角度
 #define EXAMPLE_TAG "CAN_TEST"
 #define SENDMSG 0
 #define RECEIVEMSG 1
@@ -27,6 +29,11 @@
 double calc_sin(double amp, double phase, double sample_hz, double sample_id)
 {
     return amp * sin(2 * PI * (sample_id / sample_hz) + phase);
+}
+
+double calc_cos(double amp, double phase, double sample_hz, double sample_id)
+{
+    return amp * cos(2 * PI * (sample_id / sample_hz) + phase);
 }
 
 /// @brief 打印 CAN 数据
@@ -69,16 +76,33 @@ static void twai_transmit_task(void *arg)
     vTaskDelay(pdMS_TO_TICKS(1000));
     while (1)
     {
-        for (i = 0; i < 400; i++) // 发送标准数据帧
+        for (i = 0; i < 500; i++) // 发送标准数据帧
         {
             // SEND DATA TO MOTOR
-            twai_message_t s1 = Multi_angleControl_2(1, 0x120, (int32_t)(100 * calc_sin(30, 0, 400, i)));
+            // twai_message_t s1 = Multi_angleControl_2(1, 0xA0, (int32_t)(100 * calc_sin(30, 0, 1000, i)));
+            twai_message_t s1 = Motion_Control(3, D2R(calc_sin(30, 0, 500, i)), D2R(calc_cos(30, 0, 500, i)) * 2 * PI / 10.0, 5, 0.3, 0);
             ESP_ERROR_CHECK(twai_transmit(&s1, portMAX_DELAY));
-            printf("MSG_%d  \n", i);
-            //printf_msg(SENDMSG, &s1);
-            vTaskDelay(pdMS_TO_TICKS(25));
+            printf("MSG_%d\tDegree = %+7.3f\tR = %+7.3f\n", i, calc_sin(30, 0, 500, i), D2R(calc_sin(30, 0, 500, i)));
+            printf_msg(SENDMSG, &s1);
+            vTaskDelay(pdMS_TO_TICKS(20));
         }
+        twai_message_t s1 = Motion_Control(3, D2R(calc_sin(30, 0, 500, 500)), 0.008, 5, 0.3, 0);
+        ESP_ERROR_CHECK(twai_transmit(&s1, portMAX_DELAY));
+        printf("MSG_%d  \n", i);
+        //printf_msg(SENDMSG, &s1);
+        vTaskDelay(pdMS_TO_TICKS(10000));
     }
+    // vTaskDelay(pdMS_TO_TICKS(1000));
+    // while (1)
+    // {
+    // // SEND DATA TO MOTOR
+    // twai_message_t s1 = Multi_angleControl_2(1, 0x120, (int32_t)(100 * calc_sin(30, 0, 400, i)));
+    // ESP_ERROR_CHECK(twai_transmit(&s1, portMAX_DELAY));
+    // printf("MSG_%d  \n", i);
+    // //printf_msg(SENDMSG, &s1);
+    // vTaskDelay(pdMS_TO_TICKS(20));
+    // }
+
     vTaskDelete(NULL);
 }
 
@@ -127,9 +151,9 @@ void app_main(void)
     ESP_LOGI(EXAMPLE_TAG, "Driver installed");
     ESP_ERROR_CHECK(twai_start());
     ESP_LOGI(EXAMPLE_TAG, "Driver started");
-    //实现任务的函数名称（task1）；任务的任何名称（“ task1”等）；分配给任务的堆栈大小，以字为单位；任务输入参数（可以为NULL）；任务的优先级（0是最低优先级）；任务句柄（可以为NULL）；任务将运行的内核ID（0或1）
-    xTaskCreatePinnedToCore(twai_receive_task, "TWAI_rx", 4096, NULL, 1, NULL,  0);
-    xTaskCreatePinnedToCore(twai_transmit_task, "TWAI_tx", 10000, NULL, 3, NULL,  1);
+    // 实现任务的函数名称（task1）；任务的任何名称（“ task1”等）；分配给任务的堆栈大小，以字为单位；任务输入参数（可以为NULL）；任务的优先级（0是最低优先级）；任务句柄（可以为NULL）；任务将运行的内核ID（0或1）
+    xTaskCreatePinnedToCore(twai_receive_task, "TWAI_rx", 4096, NULL, 1, NULL, 0);
+    xTaskCreatePinnedToCore(twai_transmit_task, "TWAI_tx", 4096, NULL, 3, NULL, 1);
 
     // vTaskDelay(pdMS_TO_TICKS(30000)); // 运行10s
     vTaskDelay(pdMS_TO_TICKS(10000)); // 运行10s
@@ -144,7 +168,7 @@ void app_main(void)
     while (1)
     {
         vTaskDelay(pdMS_TO_TICKS(10000)); // 运行10s
-        if(twai_get_status_info(&status_info) == ESP_FAIL)
+        if (twai_get_status_info(&status_info) == ESP_FAIL)
         {
             printf("ERROR\n");
             continue;
