@@ -1,11 +1,11 @@
 #include "my_can.h"
 
 /**
- * @brief  Torgue control A1 command 力矩控制
+ * @brief  Torque control A1 command 力矩控制
  * @param  uint8_t Motor_ID
- * @param  int32_t iqControl
+ * @param  int16_t iqControl
  */
-twai_message_t CAN_TorgueControl(uint8_t Motor_ID, int32_t iqControl)
+twai_message_t CAN_TorqueControl(uint8_t Motor_ID, int16_t iqControl)
 {
     twai_message_t msg = {.identifier = (STD_ID + Motor_ID), .data_length_code = 8, .data = {
                                                                                         0xA1,                           //
