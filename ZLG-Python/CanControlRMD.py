@@ -1,8 +1,15 @@
 import zlgcan
+import time
+import math
 
 zcanlib = zlgcan.ZCAN()
 
+def D2R(x):
+    return x * math.pi / 180.0
 
+
+def R2D(x):
+    return x * 180.0 / math.pi
 def open_can(device_type=zlgcan.ZCAN_USBCAN1):
     global zcanlib
     device_handle = zcanlib.OpenDevice(device_type, 0, 0)
@@ -66,6 +73,8 @@ def receive_can(chn_handle):
                 rcv_msg[i].frame.eff, rcv_msg[i].frame.rtr,
                 ''.join(hex(rcv_msg[i].frame.data[j])[2:] +
                         ' ' for j in range(rcv_msg[i].frame.can_dlc))))
+        return rcv_msg, rcv_num
+    return None, 0
 
 
 class CanControlRMD():
@@ -133,7 +142,7 @@ class CanControlRMD():
         """
         Motor_ID = Motor_ID & 0xff
         maxSpeed = maxSpeed & 0xffff
-        angleControl = maxSpeed & 0xffffffff
+        angleControl = angleControl & 0xffffffff
         data = [0xA4,
                 0,
                 maxSpeed & 0xff,
@@ -192,10 +201,40 @@ class CanControlRMD():
                 t_ff]
         transmit_can(self.chn_handle, 0, self.MOTION_STDID + Motor_ID, data, 8)
 
+    def close_motor(self, Motor_ID: int):
+        Motor_ID = Motor_ID & 0xff
+        data = [0x80, 0, 0, 0, 0, 0, 0, 0]
+        transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
+        time.sleep(0.02)
+        data = [0x76, 0, 0, 0, 0, 0, 0, 0]
+        transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
+
+    # def init_motor_motion_single(self, Motor_ID: int, pos_des : float):
+    #     Motor_ID = Motor_ID & 0xff
+    #     data = [0x94,
+    #             0,
+    #             0,
+    #             0,
+    #             0,
+    #             0,
+    #             0,
+    #             0]
+    #     transmit_can(self.chn_handle, 0, self.MOTION_STDID + Motor_ID, data, 8)
+    #     time.sleep(0.01)
+    #     msg, num = receive_can(self.chn_handle)
+    #     if num > 0:
+    #         pos_cur = (msg[0].frame.data[6] + ((msg[0].frame.data[7]) << 8)) / 100.0
+    #         print("init_motor_single Motor_ID:{} pos_cur:{} pos_des:{}".format(Motor_ID, pos_cur, pos_des))
+    #         pos_diff = pos_des - pos_cur
+    #         idx = pos_diff/100.0
+    #         for i in range(100):
+    #             self.motion_control(Motor_ID, D2R(pos_cur + (i+1) * idx), 0, 0, 0, 0.2)
+    #             time.sleep(0.02)
+
     def CAN_RECV(self):
         # receive can message
         zcanlib.ClearBuffer(self.chn_handle)
-        receive_can(self.chn_handle)
+        return receive_can(self.chn_handle)
 
     def __del__(self):
         # Close Channel
