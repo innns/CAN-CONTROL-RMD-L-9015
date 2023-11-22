@@ -1,8 +1,10 @@
 import zlgcan
 import time
 import math
+import threading
 
 zcanlib = zlgcan.ZCAN()
+
 
 def D2R(x):
     return x * math.pi / 180.0
@@ -10,6 +12,8 @@ def D2R(x):
 
 def R2D(x):
     return x * 180.0 / math.pi
+
+
 def open_can(device_type=zlgcan.ZCAN_USBCAN1):
     global zcanlib
     device_handle = zcanlib.OpenDevice(device_type, 0, 0)
@@ -129,6 +133,32 @@ class CanControlRMD():
                 (speedControl >> 24) & 0xff]
         transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
 
+    def set_PID(self, Motor_ID: int, C_KP: int, C_KI: int, S_KP: int, S_KI: int, P_KP: int, P_KI: int, save2ROM: bool):
+        """
+        设置电机的PID参数，所有参数都量化到 0 - 0xff
+        :param Motor_ID:
+        :param C_KP: uint8_t 代表电流环KP参数，C_KP / 0xff * 系统设置的电流环最大值 为实际参数
+        :param C_KI: uint8_t 代表电流环KI参数，C_KI / 0xff * 系统设置的电流环最大值 为实际参数
+        :param S_KP: uint8_t 代表速度环KP参数，S_KP / 0xff * 系统设置的速度环最大值 为实际参数
+        :param S_KI: uint8_t 代表速度环KI参数，S_KI / 0xff * 系统设置的速度环最大值 为实际参数
+        :param P_KP: uint8_t 代表位置环KP参数，P_KP / 0xff * 系统设置的位置环最大值 为实际参数
+        :param P_KI: uint8_t 代表位置环KI参数，P_KI / 0xff * 系统设置的位置环最大值 为实际参数
+        :param save2ROM: true 保存到 ROM，false 保存到 RAM
+        :return:
+        """
+        CMD = 0x31
+        if save2ROM:
+            CMD = 0x32
+        C_KP = C_KP & 0xff
+        C_KI = C_KI & 0xff
+        S_KP = S_KP & 0xff
+        S_KI = S_KI & 0xff
+        P_KP = P_KP & 0xff
+        P_KI = P_KI & 0xff
+        data = [CMD, 0, C_KP, C_KI, S_KP, S_KI, P_KP, P_KI]
+        transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
+        return
+
     def multi_angle_control(self, Motor_ID: int, maxSpeed: int, angleControl: int):
         """
         该指令为控制指令，在电机没有故障的情况下可以运行该指令。主机发送该命令以控制电机的位置（多圈角度）
@@ -209,6 +239,11 @@ class CanControlRMD():
         data = [0x76, 0, 0, 0, 0, 0, 0, 0]
         transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
 
+    def read_single_angel(self, Motor_ID: int):
+        Motor_ID = Motor_ID & 0xff
+        data = [0x94, 0, 0, 0, 0, 0, 0, 0]
+        transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
+
     # def init_motor_motion_single(self, Motor_ID: int, pos_des : float):
     #     Motor_ID = Motor_ID & 0xff
     #     data = [0x94,
@@ -231,10 +266,27 @@ class CanControlRMD():
     #             self.motion_control(Motor_ID, D2R(pos_cur + (i+1) * idx), 0, 0, 0, 0.2)
     #             time.sleep(0.02)
 
-    def CAN_RECV(self):
+    def recv_can(self):
         # receive can message
         zcanlib.ClearBuffer(self.chn_handle)
         return receive_can(self.chn_handle)
+
+    def process_recv_can(self):
+        while (1):
+            # receive can message
+            msg, num = receive_can(self.chn_handle)
+            if num > 0:
+                for i in range(num):
+                    if 0x240 < msg[i].frame.can_id < 0x400:  # 返回的是电机数据
+                        motor_id = msg[i].frame.can_id - 0x240
+                        if msg[i].frame.can_dlc == 8 and msg[i].frame.data[0] == 0x94:
+                            angel = (msg[i].frame.data[6] | (msg[i].frame.data[7] << 8)) / 100.0
+                            print("motor_id:{} angel:{}".format(motor_id, angel))
+            time.sleep(0.001)
+
+    def recv_can_threading(self):
+        # receive can message
+        threading.Thread(target=self.process_recv_can).start()
 
     def __del__(self):
         # Close Channel

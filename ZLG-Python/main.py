@@ -23,15 +23,18 @@ def calc_cos(amp, phase, sample_hz, sample_id):
 
 if __name__ == '__main__':
     CAN = CanControlRMD.CanControlRMD()
+    CAN.recv_can_threading()
     HZ = 500
-    ALLTIME = 10
+    ALL_TIME = 10
     CAN.close_motor(MOTOR[3])
     time.sleep(0.2)
-    CAN.multi_angle_control(MOTOR[3], 0x80, 5270)
-    time.sleep(3)
-    CAN.multi_angle_control(MOTOR[3], 0x80, 0)
+    CAN.multi_angle_control(MOTOR[3], 0x30, 5270)
     time.sleep(2)
+    CAN.multi_angle_control(MOTOR[3], 0x30, 0)
+    time.sleep(1)
     CAN.close_motor(MOTOR[3])
+    time.sleep(0.5)
+
     # CAN.init_motor_motion_single(MOTOR[3], 52.7)
     # time.sleep(2)
     # CAN.init_motor_motion_single(MOTOR[3], 0)
@@ -48,8 +51,9 @@ if __name__ == '__main__':
                                5,
                                0.3,
                                t_ff)
+            # CAN.recv_can_threading()
             print("id {} : {}".format(i, calc_sin(30, 0, HZ, i)))
-            diff = ALLTIME / HZ * (i + 1) - (time.time() - start_time)
+            diff = ALL_TIME / HZ * (i + 1) - (time.time() - start_time)
             if diff > 0:
                 time.sleep(diff)
         print("ALL COST TIME = {} s".format(time.time() - start_time))
