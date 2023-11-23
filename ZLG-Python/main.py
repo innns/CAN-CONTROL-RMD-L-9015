@@ -1,6 +1,9 @@
 import CanControlRMD
 import math
 import time
+import tqdm
+from tqdm import trange
+
 
 MOTOR = [i for i in range(10)]
 
@@ -28,20 +31,16 @@ if __name__ == '__main__':
     ALL_TIME = 10
     CAN.close_motor(MOTOR[3])
     time.sleep(0.2)
-    CAN.multi_angle_control(MOTOR[3], 0x30, 5270)
-    time.sleep(2)
+    # CAN.multi_angle_control(MOTOR[3], 0x30, 5270)
+    # time.sleep(2)
     CAN.multi_angle_control(MOTOR[3], 0x30, 0)
     time.sleep(1)
     CAN.close_motor(MOTOR[3])
     time.sleep(0.5)
 
-    # CAN.init_motor_motion_single(MOTOR[3], 52.7)
-    # time.sleep(2)
-    # CAN.init_motor_motion_single(MOTOR[3], 0)
-    # time.sleep(2)
     while True:
         start_time = time.time()
-        for i in range(HZ):
+        for i in trange(HZ):
             t_ff = 0.2
             if (calc_sin(1, 0, HZ, i) - calc_sin(1, 0, HZ, i - 1)) > 0:
                 t_ff = 0.4
@@ -61,3 +60,14 @@ if __name__ == '__main__':
         CAN.motion_control(MOTOR[3], D2R(calc_sin(30, 0, HZ, HZ)), 0.008, 5, 0.3, 0.4)
         time.sleep(5)
         print("Can control end")
+    # while True:
+    #     CAN.set_PID(MOTOR[3], 0x30, 0x0A, 0x30, 0x0, 0x4A, 0x00, False)
+    #     CAN.multi_angle_control(MOTOR[3], 0x05, 0)
+    #     start_time = time.time()
+    #     for i in range(HZ * ALL_TIME):
+    #         # CAN.read_single_angel(MOTOR[3])
+    #         CAN.multi_angle_control(MOTOR[3], 0x05, int(calc_sin(20, 0, HZ * ALL_TIME, i) * 100))
+    #         diff = 1 / HZ * (i + 1) - (time.time() - start_time)
+    #         if diff > 0:
+    #             time.sleep(diff)
+    #     print("ALL COST TIME = {} s".format(time.time() - start_time))
