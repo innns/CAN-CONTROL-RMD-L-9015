@@ -18,6 +18,12 @@ USB 转 CAN 控制 `RMD-L-9015`，把文档的通信协议翻译了成 ZLG 的�
 
 周立功以及可以使用周立功驱动的兼容设备
 
+功能封装在 `ZLG-Python/CanControlRMD.py` 下
+
+实现了部分单电机控制命令、运动控制模式命令、CAN监听线程等功能
+
+### 友情链接
+
 [周立功官网二次开发资料](https://manual.zlg.cn/web/#/152?page_id=5332)
 
 [CSDN上的ZLG Python开发资料](https://blog.csdn.net/weifengdq/article/details/117482461)
