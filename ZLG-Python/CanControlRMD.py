@@ -260,6 +260,11 @@ class CanControlRMD:
         data = [0x92, 0, 0, 0, 0, 0, 0, 0]
         transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
 
+    def read_single_angel(self, Motor_ID: int):
+        Motor_ID = Motor_ID & 0xff
+        data = [0x94, 0, 0, 0, 0, 0, 0, 0]
+        transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
+
     # def init_motor_motion_single(self, Motor_ID: int, pos_des : float):
     #     Motor_ID = Motor_ID & 0xff
     #     data = [0x94,
@@ -288,36 +293,58 @@ class CanControlRMD:
         return receive_can(self.chn_handle)
 
     def process_recv_can(self, print_msg=False):
+        # receive can message
+        msg, num = receive_can(self.chn_handle, print_msg)
+        if num > 0:
+            for i in range(num):
+                if 0x240 < msg[i].frame.can_id < 0x400:  # 返回的是电机数据
+                    motor_id = msg[i].frame.can_id - 0x240
+                    if msg[i].frame.can_dlc == 8 and msg[i].frame.data[0] == 0x92:
+                        angel = ((msg[i].frame.data[4]) |
+                                 (msg[i].frame.data[5] << 8) |
+                                 (msg[i].frame.data[6] << 16) |
+                                 (msg[i].frame.data[7] << 24))
+                        if angel > 0x80000000:
+                            angel = angel - 0x100000000
+                        angel = angel / 100.0
+                        if print_msg:
+                            print("motor_id:{} angel:{}".format(motor_id, angel))
+                        self.msg = CAN_MSG(motor_id, msg[i].timestamp, msg[i].frame.data[:], angel)
+                    elif msg[i].frame.can_dlc == 8 and msg[i].frame.data[0] == 0x94:
+                        angel = ((msg[i].frame.data[6]) |
+                                 (msg[i].frame.data[7] << 8))
+                        angel = angel / 100.0
+                        if print_msg:
+                            print("motor_id:{} SINGLE angel:{}".format(motor_id, angel))
+                        self.msg = CAN_MSG(motor_id, msg[i].timestamp, msg[i].frame.data[:], angel)
+        # time.sleep(0.001)
+
+    def __process_recv_can_thread(self, print_msg=False):
         while 1:
-            # receive can message
-            msg, num = receive_can(self.chn_handle, print_msg)
-            if num > 0:
-                for i in range(num):
-                    if 0x240 < msg[i].frame.can_id < 0x400:  # 返回的是电机数据
-                        motor_id = msg[i].frame.can_id - 0x240
-                        if msg[i].frame.can_dlc == 8 and msg[i].frame.data[0] == 0x92:
-                            angel = ((msg[i].frame.data[4]) |
-                                     (msg[i].frame.data[5] << 8) |
-                                     (msg[i].frame.data[6] << 16) |
-                                     (msg[i].frame.data[7] << 24))
-                            if angel > 0x80000000:
-                                angel = angel - 0x100000000
-                            angel = angel / 100.0
-                            if print_msg:
-                                print("motor_id:{} angel:{}".format(motor_id, angel))
-                            self.msg = CAN_MSG(motor_id, msg[i].timestamp, msg[i].frame.data[:], angel)
-            # time.sleep(0.001)
+            self.process_recv_can(print_msg)
 
     def get_msg(self):
         return self.msg
 
     def recv_can_threading(self):
         # receive can message
-        threading.Thread(target=self.process_recv_can).start()
+        threading.Thread(target=self.__process_recv_can_thread).start()
 
-    def __del__(self):
+    def close(self):
         # Close Channel
         zcanlib.ResetCAN(self.chn_handle)
         # Close Device
         zcanlib.CloseDevice(self.dev_handle)
         print("Finished")
+
+    def __del__(self):
+        self.close()
+
+
+if __name__ == '__main__':
+    can = CanControlRMD()
+    while 1:
+        can.read_single_angel(3)
+        can.process_recv_can(True)
+        time.sleep(0.1)
+

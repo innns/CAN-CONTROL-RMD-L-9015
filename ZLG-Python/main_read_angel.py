@@ -5,6 +5,8 @@ import math
 import time
 from tqdm import trange
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+import numpy as np
 
 MOTOR = [i for i in range(10)]
 
@@ -25,49 +27,9 @@ def calc_cos(amp, phase, sample_hz, sample_id):
     return amp * math.cos(2 * math.pi / sample_hz * sample_id + phase)
 
 
-# if __name__ == '__main__':
-#     CAN = CanControlRMD.CanControlRMD()
-#     CAN.recv_can_threading()
-#     HZ = 500
-#     ALL_TIME = 10
-#     time.sleep(1)
-#     CAN.close_motor(MOTOR[2])
-#     time.sleep(2)
-#     CAN.motion_control(MOTOR[2],
-#                        0,
-#                        0,
-#                        2,
-#                        0.1,
-#                        0)
-#     time.sleep(1)
-#     # CAN.init_motor_motion_single(MOTOR[3], 52.7)
-#     # time.sleep(2)
-#     # CAN.init_motor_motion_single(MOTOR[3], 0)
-#     # time.sleep(2)
-#     while True:
-#         for i in range(HZ):
-#             CAN.motion_control(MOTOR[2],
-#                                0,
-#                                0,
-#                                2,
-#                                0.1,
-#                                0)
-#             time.sleep(0.1)
-#
-#         print("Can control start")
-#         CAN.motion_control(MOTOR[2],
-#                            0,
-#                            0.002,
-#                            2,
-#                            0.1,
-#                            0)
-#         time.sleep(5)
-#         print("Can control end")
 if __name__ == '__main__':
     CAN = CanControlRMD.CanControlRMD()
     CAN.recv_can_threading()
-    HZ = 100
-    ALL_TIME = 10
     time.sleep(3)
     CAN.close_motor(MOTOR[3])
     # CAN.set_PID(MOTOR[3], 0xff, 0x00, 0xff, 0x00, 0x05, 0x0, False)
@@ -76,19 +38,43 @@ if __name__ == '__main__':
     # time.sleep(2)
     # CAN.init_motor_motion_single(MOTOR[3], 0)
     # time.sleep(2)
+
+
+    # x = [0]
+    # y = [0]
+    # plt.ion()
+
+
     while True:
         CAN.set_PID(MOTOR[3], 0x30, 0x0A, 0x30, 0x0, 0x4A, 0x00, False)
-        CAN.multi_angle_control(MOTOR[3], 0x05, 0)
+        CAN.multi_angle_control(MOTOR[3], 0x0A, 0)
         start_time = time.time()
-        for i in range((HZ * ALL_TIME)):
+        # for i in range((HZ * ALL_TIME)):
+        HZ = 50
+        ALL_TIME = 20
+        i = 0
+        for i in trange(HZ * ALL_TIME):
+            i += 1
             CAN.read_multi_angel(MOTOR[3])
             msg = CAN.get_msg()
             # for data in msg.can_data:
             #     print("0x{:02X} ".format(data), end="")
             # print()
-            print("\rMAINLOOP: {}".format(msg.single_angle), end='')
+            print("MAINLOOP: {}".format(msg.single_angle), end='\n')
             # tqdm.write("\nMAINLOOP: {}".format(msg.single_angle), end='')
-            diff = 1 / HZ * (i + 1) - (time.time() - start_time)
+
+
+            # t = (time.time() - start_time)
+            # if (len(x) > 100):
+            #     x = x[1:]
+            #     y = y[1:]
+            # x.append(t)
+            # y.append(msg.single_angle)
+            # plt.clf()  # 清除之前画的图
+            # plt.plot(x, y)
+            # plt.pause(0.001)
+
+            diff = 1 / HZ * i - (time.time() - start_time)
             if (diff > 0):
                 time.sleep(diff)
         print("\nALL COST TIME = {:.2f} s".format(time.time() - start_time))
