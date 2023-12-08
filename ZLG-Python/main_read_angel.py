@@ -7,6 +7,7 @@ from tqdm import trange
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
+import collections
 
 MOTOR = [i for i in range(10)]
 
@@ -27,27 +28,54 @@ def calc_cos(amp, phase, sample_hz, sample_id):
     return amp * math.cos(2 * math.pi / sample_hz * sample_id + phase)
 
 
+pi = [0x60, 0x10, 0x30, 0x00, 0x60, 0x00]
+
 if __name__ == '__main__':
     CAN = CanControlRMD.CanControlRMD()
+
+    print("\nSTARTING CAN")
+    for i in trange(30):
+        time.sleep(0.1)
+
     CAN.recv_can_threading()
-    time.sleep(3)
-    CAN.close_motor(MOTOR[3])
-    # CAN.set_PID(MOTOR[3], 0xff, 0x00, 0xff, 0x00, 0x05, 0x0, False)
-    time.sleep(3)
-    # CAN.init_motor_motion_single(MOTOR[3], 52.7)
-    # time.sleep(2)
-    # CAN.init_motor_motion_single(MOTOR[3], 0)
-    # time.sleep(2)
+    print("\nSTARTING CAN LISTEN THREADING")
+    for i in trange(10):
+        time.sleep(0.1)
 
+    print("\nSETTING INIT PID PARAS")
 
-    # x = [0]
-    # y = [0]
-    # plt.ion()
+    for i in trange(1, 4):
+        CAN.set_PID(i, pi[0], pi[1], pi[2], pi[3], pi[4], pi[5], False)
+        time.sleep(0.33)
 
+    print("\nRESETTING ZERO POINT")
 
+    offset = [0, 0, 0, 0]
+    for i in range(1, 4):
+        # 3个电机
+        for j in range(3):
+            # 重试三次
+            CAN.read_multi_angel(i)
+            time.sleep(0.01)
+            msg = CAN.get_msg()
+            print("{} WANT{} MSG MOTOR{} ANGLE{}".format("#" * i + "_" * (3 - i), i, msg.motor_id, msg.single_angle))
+            time.sleep(0.01)
+            if msg.motor_id == i:
+                offset[i] = round(msg.single_angle / 360.0) * 360
+                CAN.multi_angle_control(i, 0x05, int(100 * offset[i]))
+                break
+
+    print("MOTOR OFFSET{}\n".format(offset[1:]))
+
+    print("#" * 5 + " INIT DONE " + "#" * 5)
+
+    show_queue = collections.deque(maxlen=50)
+    time_queue = collections.deque(maxlen=50)
+
+    plt.ion()
     while True:
-        CAN.set_PID(MOTOR[3], 0x30, 0x0A, 0x30, 0x0, 0x4A, 0x00, False)
-        CAN.multi_angle_control(MOTOR[3], 0x0A, 0)
+        # CAN.set_PID(MOTOR[3], 0x60, 0x10, 0x30, 0x0, 0x60, 0x00, False)
+        CAN.multi_angle_control(MOTOR[3], 0x05, 0)
         start_time = time.time()
         # for i in range((HZ * ALL_TIME)):
         HZ = 50
@@ -62,17 +90,12 @@ if __name__ == '__main__':
             # print()
             print("MAINLOOP: {}".format(msg.single_angle), end='\n')
             # tqdm.write("\nMAINLOOP: {}".format(msg.single_angle), end='')
-
-
-            # t = (time.time() - start_time)
-            # if (len(x) > 100):
-            #     x = x[1:]
-            #     y = y[1:]
-            # x.append(t)
-            # y.append(msg.single_angle)
-            # plt.clf()  # 清除之前画的图
-            # plt.plot(x, y)
-            # plt.pause(0.001)
+            show_queue.append(-1 * msg.single_angle)
+            time_queue.append(time.time() - start_time)
+            plt.clf()  # 清除之前画的图
+            plt.plot(time_queue, show_queue)
+            plt.ylim((-90, 90))
+            plt.pause(0.001)
 
             diff = 1 / HZ * i - (time.time() - start_time)
             if (diff > 0):

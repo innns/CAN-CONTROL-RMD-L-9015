@@ -7,7 +7,7 @@ import keyboard
 
 MOTOR = [i for i in range(10)]
 
-pi = [143, 30, 140, 0, 110, 20]
+pi = [0x7F, 0x4F, 0x80, 0x20, 0x40, 0x00]
 id = 0
 
 
@@ -83,42 +83,61 @@ if __name__ == '__main__':
     CAN = CanControlRMD.CanControlRMD()
     CAN.recv_can_threading()
     HZ = 50
-    ALL_TIME = 10
-    CAN.close_motor(MOTOR[3])
-    time.sleep(0.2)
-    # CAN.multi_angle_control(MOTOR[3], 0x30, 5270)
-    # time.sleep(2)
-    CAN.multi_angle_control(MOTOR[3], 0x30, 0)
-    time.sleep(1)
-    CAN.close_motor(MOTOR[3])
-    time.sleep(0.5)
+    ALL_TIME = 5
+    # CAN.close_motor(MOTOR[1])
+    # time.sleep(0.2)
+    # # CAN.multi_angle_control(MOTOR[3], 0x30, 5270)
+    # # time.sleep(2)
+    # CAN.multi_angle_control(MOTOR[1], 0x30, 0)
+    # CAN.multi_angle_control(MOTOR[2], 0x30, 0)
+    #
+    # time.sleep(1)
+    #
+    CAN.close_motor(MOTOR[1])
+    CAN.close_motor(MOTOR[2])
+
+    time.sleep(2)
 
     while True:
         start_time = time.time()
-        # CAN.set_PID(MOTOR[3], 0x60, 0x0A, 0x60, 0x0, 0x7A, 0x00, False)
+        CAN.set_PID(MOTOR[3], pi[0], pi[1], pi[2], pi[3], pi[4], pi[5], False)
         for i in range((HZ * ALL_TIME)):
             #     t_ff = 0.2
             #     if (calc_sin(1, 0, HZ, i) - calc_sin(1, 0, HZ, i - 1)) > 0:
             #         t_ff = 0.4
-            #     CAN.motion_control(MOTOR[3],
-            #                        D2R(calc_sin(30, 0, HZ * ALL_TIME, i)),
-            #                        0.008,
-            #                        3,
-            #                        0.3,
-            #                        0)
-            # CAN.recv_can_threading()
-            CAN.multi_angle_control(MOTOR[3], 0x300, int(100 * calc_sin(10, 0, HZ * ALL_TIME, i)))
-            # print("id {} : {}".format(i, calc_sin(10, 0, HZ * ALL_TIME, i)))
-            id_ = id
-            key_fun()
-            for jj in range(6):
-                pi[jj] = AMP_LIMIT(pi[jj], 0xff, 0)
-            CAN.set_PID(MOTOR[3], pi[0], pi[1], pi[2], pi[3], pi[4], pi[5], False)
-            if id_ != id:
-                print("")
-                print("Cur  KP {:2X} KI {:2X}".format(pi[0], pi[1]))
-                print("Spd  KP {:2X} KI {:2X}".format(pi[2], pi[3]))
-                print("Pos  KP {:2X} KI {:2X}".format(pi[4], pi[5]))
+            # CAN.motion_control(MOTOR[3],
+            #                    D2R(calc_sin(15, 0, HZ * ALL_TIME, i)+5),
+            #                    0.01,
+            #                    1.0,
+            #                    0.06,
+            #                    0)
+            # CAN.motion_control(MOTOR[3],
+            #                    D2R(calc_sin(15, 0, HZ * ALL_TIME, i)),
+            #                    0.05,
+            #                    0.8,
+            #                    0.01,
+            #                    0)
+            CAN.recv_can_threading()
+            # CAN.multi_angle_control(MOTOR[1], 0x05, int(100 * calc_sin(10, 0, HZ * ALL_TIME, i)))
+            #
+
+            # CAN.multi_angle_control(MOTOR[2], 0x05, 0)
+            CAN.multi_angle_control(MOTOR[3], 0x05, int(100 * (-20 + calc_sin(20, 0, HZ * ALL_TIME, i))))
+            # CAN.multi_angle_control(MOTOR[1], 0x30, int(100 * calc_sin(10, 0, HZ * ALL_TIME, i)))
+            # print(
+            #     "id {} : {}".format(i, calc_sin(10, 0, HZ * ALL_TIME, i)))
+            # id_ = id
+            # key_fun()
+            # for jj in range(6):
+            #     pi[jj] = AMP_LIMIT(pi[jj], 0xff, 0)
+            # CAN.set_PID(MOTOR[1], pi[0], pi[1], pi[2], pi[3], pi[4], pi[5], False)
+            # CAN.set_PID(MOTOR[2], pi[0], pi[1], pi[2], pi[3], pi[4], pi[5], False)
+            #
+            # if id_ != id:
+            #     print("")
+            #     print("Cur  KP {:2X} KI {:2X}".format(pi[0], pi[1]))
+            #     print("Spd  KP {:2X} KI {:2X}".format(pi[2], pi[3]))
+            #     print("Pos  KP {:2X} KI {:2X}".format(pi[4], pi[5]))
 
             diff = 1 / HZ * (i + 1) - (time.time() - start_time)
             if (diff > 0):
@@ -128,14 +147,3 @@ if __name__ == '__main__':
         # CAN.motion_control(MOTOR[3], 0, 0.008, 3, 0.3, 0.06)
         # time.sleep(20)
         print("Can control end")
-    # while True:
-    #     CAN.set_PID(MOTOR[3], 0x30, 0x0A, 0x30, 0x0, 0x4A, 0x00, False)
-    #     CAN.multi_angle_control(MOTOR[3], 0x05, 0)
-    #     start_time = time.time()
-    #     for i in range(HZ * ALL_TIME):
-    #         # CAN.read_single_angel(MOTOR[3])
-    #         CAN.multi_angle_control(MOTOR[3], 0x05, int(calc_sin(20, 0, HZ * ALL_TIME, i) * 100))
-    #         diff = 1 / HZ * (i + 1) - (time.time() - start_time)
-    #         if diff > 0:
-    #             time.sleep(diff)
-    #     print("ALL COST TIME = {} s".format(time.time() - start_time))

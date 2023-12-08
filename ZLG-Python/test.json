@@ -1,0 +1,49 @@
+{
+ "NOTE": "pi does not work; kp,kd is the default PD controller para, index means motor id, DONT EDIT; DIRECTION means motor spin direction",
+ "pi": [
+  111,
+  79,
+  128,
+  32,
+  48,
+  0
+ ],
+ "kp": [
+  2.0,
+  2.4,
+  2.4,
+  6
+ ],
+ "kd": [
+  0.1,
+  0.16,
+  0.16,
+  0.18
+ ],
+ "DIRECTION": [
+  0,
+  1,
+  -1,
+  -1
+ ],
+ "software_zero": [
+  180,
+  180,
+  180,
+  180
+ ],
+ "AMP_LOW": [
+  0,
+  -30,
+  -30,
+  -60
+ ],
+ "AMP_UP": [
+  0,
+  30,
+  30,
+  30
+ ],
+ "IP": "127.0.0.1",
+ "PORT": 5000
+}

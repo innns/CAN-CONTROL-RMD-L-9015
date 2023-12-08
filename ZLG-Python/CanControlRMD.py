@@ -173,7 +173,6 @@ class CanControlRMD:
         P_KI = P_KI & 0xff
         data = [CMD, 0, C_KP, C_KI, S_KP, S_KI, P_KP, P_KI]
         transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
-        return
 
     def multi_angle_control(self, Motor_ID: int, maxSpeed: int, angleControl: int):
         """
@@ -221,16 +220,20 @@ class CanControlRMD:
                 0]
         transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
 
-    def motion_control(self, Motor_ID: int, p_des_: float, v_des_: float, kp_: float, kd_: float, t_ff_: float):
+    def motion_control(self, Motor_ID: int, p_des_: float, v_des_: float, kp_: float, kd_: float, t_ff_: float,
+                       mod_pi=False):
         """
         :param Motor_ID: uint8_t
-        :param p_des_: uint16_t 期望位置 -12.5到12.5，单位rad
-        :param v_des_: uint16_t 期望速度 -45到45，单位rad/s
-        :param kp_: uint16_t 位置偏差系数 0到500
-        :param kd_: uint16_t 前馈力矩 0到5
-        :param t_ff_: uint16_t 位置偏差系数 -24到24，单位N-m
+        :param p_des_: float 期望位置 -12.5到12.5，单位rad
+        :param v_des_: float 期望速度 -45到45，单位rad/s
+        :param kp_: float 位置偏差系数 0到500
+        :param kd_: float 前馈力矩 0到5
+        :param t_ff_: float 位置偏差系数 -24到24，单位N-m
         :return: IqRef = [kp*(p_des - p_fd_实际位置) + kd*(v_des - v_fb_实际速度) + t_ff]*KT_扭矩系数
+        :param mod_pi: 是否归一化到0-2* pi
         """
+        if mod_pi:
+            p_des_ = p_des_ % (2 * math.pi)
         Motor_ID = Motor_ID & 0xff
         p_des = int((p_des_ + 12.5) / 25.0 * 65535) & 0xffff
         v_des = int((v_des_ + 45.0) / 90.0 * 4095) & 0xffff
@@ -263,6 +266,46 @@ class CanControlRMD:
     def read_single_angel(self, Motor_ID: int):
         Motor_ID = Motor_ID & 0xff
         data = [0x94, 0, 0, 0, 0, 0, 0, 0]
+        transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
+
+    def read_encoder(self, Motor_ID: int):
+        Motor_ID = Motor_ID & 0xff
+        data = [0x60, 0, 0, 0, 0, 0, 0, 0]
+        transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
+
+    def read_raw_encoder(self, Motor_ID: int):
+        Motor_ID = Motor_ID & 0xff
+        data = [0x61, 0, 0, 0, 0, 0, 0, 0]
+        transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
+
+    def read_zero_shift_encoder(self, Motor_ID: int):
+        Motor_ID = Motor_ID & 0xff
+        data = [0x62, 0, 0, 0, 0, 0, 0, 0]
+        transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
+
+    def close_multi(self, Motor_ID: int, is_resetting_zero: bool):
+        Motor_ID = Motor_ID & 0xff
+        data = [0x20, 0x04, 0, 0, 0, 0, 0, 0]
+        if is_resetting_zero:
+            data = [0x20, 0x01, 0, 0, 0, 0, 0, 0]
+        transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
+
+    def open_multi(self, Motor_ID: int):
+        Motor_ID = Motor_ID & 0xff
+        data = [0x20, 0x04, 0, 0, 1, 0, 0, 0]
+        transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
+
+    def set_zero(self, Motor_ID: int, zero_data: int):
+        Motor_ID = Motor_ID & 0xff
+        zero_data = zero_data & 0xffffffff
+        data = [0x63,
+                0,
+                0,
+                0,
+                zero_data & 0xff,
+                (zero_data >> 8) & 0xff,
+                (zero_data >> 16) & 0xff,
+                (zero_data >> 24) & 0xff]
         transmit_can(self.chn_handle, 0, self.STDID + Motor_ID, data, 8)
 
     # def init_motor_motion_single(self, Motor_ID: int, pos_des : float):
@@ -317,6 +360,33 @@ class CanControlRMD:
                         if print_msg:
                             print("motor_id:{} SINGLE angel:{}".format(motor_id, angel))
                         self.msg = CAN_MSG(motor_id, msg[i].timestamp, msg[i].frame.data[:], angel)
+                    elif msg[i].frame.can_dlc == 8 and msg[i].frame.data[0] == 0x60:
+                        encoder_data = ((msg[i].frame.data[4]) |
+                                        (msg[i].frame.data[5] << 8) |
+                                        (msg[i].frame.data[6] << 16) |
+                                        (msg[i].frame.data[7] << 24))
+                        if encoder_data > 0x80000000:
+                            encoder_data = encoder_data - 0x100000000
+                        if print_msg:
+                            print("#### motor_id:{} encoder_data:{}".format(motor_id, encoder_data))
+                    elif msg[i].frame.can_dlc == 8 and msg[i].frame.data[0] == 0x61:
+                        encoder_data = ((msg[i].frame.data[4]) |
+                                        (msg[i].frame.data[5] << 8) |
+                                        (msg[i].frame.data[6] << 16) |
+                                        (msg[i].frame.data[7] << 24))
+                        if encoder_data > 0x80000000:
+                            encoder_data = encoder_data - 0x100000000
+                        if print_msg:
+                            print("#### motor_id:{} raw_encoder_data:{}".format(motor_id, encoder_data))
+                    elif msg[i].frame.can_dlc == 8 and msg[i].frame.data[0] == 0x62:
+                        encoder_data = ((msg[i].frame.data[4]) |
+                                        (msg[i].frame.data[5] << 8) |
+                                        (msg[i].frame.data[6] << 16) |
+                                        (msg[i].frame.data[7] << 24))
+                        if encoder_data > 0x80000000:
+                            encoder_data = encoder_data - 0x100000000
+                        if print_msg:
+                            print("#### motor_id:{} zero_shift_encoder_data:{}".format(motor_id, encoder_data))
         # time.sleep(0.001)
 
     def __process_recv_can_thread(self, print_msg=False):
@@ -326,9 +396,9 @@ class CanControlRMD:
     def get_msg(self):
         return self.msg
 
-    def recv_can_threading(self):
+    def recv_can_threading(self, print_msg=False):
         # receive can message
-        threading.Thread(target=self.__process_recv_can_thread).start()
+        threading.Thread(target=self.__process_recv_can_thread, args=(print_msg,)).start()
 
     def close(self):
         # Close Channel
@@ -347,4 +417,3 @@ if __name__ == '__main__':
         can.read_single_angel(3)
         can.process_recv_can(True)
         time.sleep(0.1)
-

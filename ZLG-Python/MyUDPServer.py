@@ -4,10 +4,13 @@ import threading
 
 
 class MyUDPServer:
+    _ip = '127.0.0.1'
+    _port = 5000
+
     def __init__(self, ip: str, port: int):
         # 创建一个UDP套接字
-        self.ip = ip
-        self.port = port
+        self._ip = ip
+        self._port = port
         self.udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # set up socket broadcasting
@@ -16,28 +19,41 @@ class MyUDPServer:
         self.current_cmd = ''
         self.recv_json_data = {}
 
-    def listen(self):
+    def listen_once(self):
+        # 接收对方发送的数据
+        recv_data, addr = self.udp_sock.recvfrom(1024)
+        self.recv_json_data = json.loads(recv_data.decode('utf-8'))
+        self.current_cmd = 'NONE'
+        if 'cmd' in self.recv_json_data.keys():
+            self.current_cmd = self.recv_json_data['cmd']
+        return self.recv_json_data
+
+    def __listen_thread(self):
         while True:
             # 接收对方发送的数据
             recv_data, addr = self.udp_sock.recvfrom(1024)
             self.recv_json_data = json.loads(recv_data.decode('utf-8'))
-            if self.recv_json_data.has_key('cmd'):
+            if 'cmd' in self.recv_json_data.keys():
                 self.current_cmd = self.recv_json_data['cmd']
                 continue
             self.current_cmd = 'NONE'
 
     def listen_threading(self):
-        t = threading.Thread(target=self.listen)
+        t = threading.Thread(target=self.__listen_thread)
         t.start()
 
     def get_json_data(self):
         return self.recv_json_data
 
+    def clear_json_data(self):
+        self.recv_json_data = {}
+        return 1
+
     def get_cmd(self):
         return self.current_cmd
 
-    def send_json_data(self, json_data):
-        self.udp_sock.sendto(json.dumps(json_data).encode('utf-8'), ('<broadcast>', self.port))
+    def send_json_data(self, json_data, port=_port):
+        self.udp_sock.sendto(json.dumps(json_data).encode('utf-8'), ('127.0.0.1', port))
 
     def close(self):
         self.udp_sock.close()
