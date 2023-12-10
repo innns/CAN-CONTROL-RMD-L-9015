@@ -52,8 +52,18 @@ class MyUDPServer:
     def get_cmd(self):
         return self.current_cmd
 
-    def send_json_data(self, json_data, port=_port):
+    def send_json_data(self, json_data: dict, port=_port):
+        """
+        发送json数据
+        :param json_data: 按字典保存
+        :param port: 端口号
+        :return:
+        UDP.send_json_data({"cmd": "clear"})
+        """
         self.udp_sock.sendto(json.dumps(json_data).encode('utf-8'), ('127.0.0.1', port))
+
+    def send_angle_json(self, motor_id: int, angle: float, port=_port):
+        self.send_json_data({"cmd": "read_angle", "id": motor_id, "angle": "{}".format(angle)}, port)
 
     def close(self):
         self.udp_sock.close()

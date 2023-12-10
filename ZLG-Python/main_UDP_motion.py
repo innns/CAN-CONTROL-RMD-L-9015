@@ -61,10 +61,10 @@ if __name__ == "__main__":
             IP = data['IP']
             PORT = data['PORT']
         else:
-            print("USING DEFAULT PARA")
             print("NO PARA FILE DEFAULT PARA")
-            time.sleep(20)
             print(para_dict)
+            time.sleep(20)
+            raise Exception("NO JSON FILE")
 
     # UDP.listen_threading()
     # 创建一个can 监听线程并启动
@@ -131,7 +131,8 @@ if __name__ == "__main__":
                 # if (angle_ != AMP_LIMIT(angle_, software_zero[i] + AMP_LOW[id_], software_zero[i] + AMP_UP[id_])
                 #         and angle_ != AMP_LIMIT(angle_, 0, software_zero[i] + AMP_UP[id_] - 360)
                 #         and angle_ != AMP_LIMIT(angle_, software_zero[i] + AMP_LOW[id_] + 360, 360)):
-                if angle_ != AMP_LIMIT(angle_, software_zero[i] + AMP_LOW[id_], software_zero[i] + AMP_UP[id_]):
+                if angle_ != AMP_LIMIT(angle_, software_zero[i] + AMP_LOW[id_] - 10,
+                                       software_zero[i] + AMP_UP[id_] + 10):
                     print("ERROR! PLZ RESET ZERO")
                     time.sleep(5)
                     raise AssertionError("电机角度超过正负范围 请调试零点！")
@@ -162,7 +163,9 @@ if __name__ == "__main__":
                 tar_angle = AMP_LIMIT(software_zero[id_] + DIRECTION[id_] * json_data["angle"],
                                       software_zero[id_] + AMP_LOW[id_],
                                       software_zero[id_] + AMP_UP[id_])
-                print("M{} WANT {}".format(json_data["id"], tar_angle))
+                print("M{} ORIGIN {} WANT {}".format(json_data["id"],
+                                                     (software_zero[id_] + DIRECTION[id_] * json_data["angle"]),
+                                                     tar_angle))
                 CAN.motion_control(json_data["id"],
                                    D2R(tar_angle),
                                    0.2,
@@ -187,10 +190,30 @@ if __name__ == "__main__":
                                                                   json_data["sp"], json_data["si"],
                                                                   json_data["pp"], json_data["pi"],
                                                                   json_data["save"]))
-            elif cmd == "close_motor":
-                print("CLOSE")
+            elif cmd == "set_zero":
+                UDP.clear_json_data()
+                for i in range(1, 4):
+                    # 3个电机
+                    CAN.motion_control(MOTOR[i],
+                                       D2R(software_zero[i]),
+                                       0.2,
+                                       1.5,
+                                       0.05,
+                                       0)
+                UDP.clear_json_data()
+                UDP.send_json_data({"cmd": "set_zero_done"})
+            elif cmd == "close_motors":
+                print("CLOSE ALL_MOTORS")
+                UDP.clear_json_data()
+                CAN.close_motor(1)
+                CAN.close_motor(2)
+                CAN.close_motor(3)
+                time.sleep(0.1)
+                UDP.clear_json_data()
                 # CAN.close_motor(json_data["id"])
+                UDP.send_json_data({"cmd": "close_motors"})
             elif cmd == "read":
+                z_s = software_zero.copy()
                 for i in range(1, 4):
                     CAN.motion_control(MOTOR[i],
                                        D2R(software_zero[i]),
@@ -198,6 +221,17 @@ if __name__ == "__main__":
                                        1.5,
                                        0.05,
                                        0)
+                for i in range(1, 4):
+                    # 3个电机
+                    for j in range(3):
+                        # 重试三次
+                        CAN.read_multi_angel(i)
+                        time.sleep(0.01)
+                        msg = CAN.get_msg()
+                        if msg.motor_id == i:
+                            z_s[i] = DIRECTION[i] * (msg.single_angle[i] - software_zero[i])
+                            UDP.send_angle_json(i, z_s[i])
+                            print("MOTOR {} \t ANGLE {:.2f}".format(i, z_s[i]))
                 print("READ")
             elif cmd == "clear":
                 print("CLEAR")

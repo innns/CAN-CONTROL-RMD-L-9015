@@ -30,6 +30,24 @@ PORT = 5000
 
 names = ['NOTE', 'pi', 'kp', 'kd', 'DIRECTION', 'software_zero', 'AMP_LOW', 'AMP_UP', 'IP', 'PORT']
 
+with open("control_para.json", "r") as f:
+    data_raw = f.read()
+    print(data_raw)
+    data = json.loads(data_raw)
+    if all(key in data for key in names):
+        print("USING JSON PARA")
+        pi = data['pi']
+        kp = data['kp']
+        kd = data['kd']
+        DIRECTION = data['DIRECTION']
+        software_zero = data['software_zero']
+        AMP_LOW = data['AMP_LOW']
+        AMP_UP = data['AMP_UP']
+        IP = data['IP']
+        PORT = data['PORT']
+    else:
+        print("USING DEFAULT PARA")
+
 
 def D2R(x):
     return x * math.pi / 180.0
@@ -162,7 +180,14 @@ def read_angles():
             if msg.motor_id == i:
                 m_a[i] = msg.single_angle
     for i in range(1, 4):
-        text_cur_show.insert('insert', "MOTOR {}\tSINGLE {:.2f}\tMULTI {:.2f}\n".format(i, s_a[i], m_a[i]))
+        text_cur_show.insert('insert',
+                             "MOTOR {} \tZERO {:.2f} \tSINGLE {:.2f} \tMULTI {:.2f} \tOFFSET {:.2f}\n". \
+                             format(i,
+                                    software_zero[i],
+                                    s_a[i],
+                                    m_a[i],
+                                    m_a[i] -
+                                    software_zero[i]))
 
 
 def read_encoder():
@@ -206,6 +231,63 @@ def close_motors():
     CAN.close_motor(2)
     time.sleep(0.01)
     CAN.close_motor(3)
+
+
+def move_to_zero():
+    global pi, kp, kd, DIRECTION, software_zero, AMP_LOW, AMP_UP, IP, PORT
+    for i in range(1, 4):
+        # TODO: >>>>>>>>>>>>>>>>>>>>>>> 注意调参 >>>>>>>>>>>>>>>>>>>>>>>>>
+        CAN.motion_control(i,
+                           D2R(software_zero[i]),
+                           0.2,
+                           1.5,
+                           0.05,
+                           0)
+
+
+def move_to_zero_hard():
+    global pi, kp, kd, DIRECTION, software_zero, AMP_LOW, AMP_UP, IP, PORT
+    for i in range(1, 4):
+        # TODO: >>>>>>>>>>>>>>>>>>>>>>> 注意调参 >>>>>>>>>>>>>>>>>>>>>>>>>
+        CAN.motion_control(i,
+                           D2R(software_zero[i]),
+                           0.2,
+                           4,
+                           0.10,
+                           0)
+        # CAN.motion_control(i,
+        #                    D2R(software_zero[i]),
+        #                    0.2,
+        #                    1.5,
+        #                    0.05,
+        #                    0)
+
+
+def record_angles():
+    global pi, kp, kd, DIRECTION, software_zero, AMP_LOW, AMP_UP, IP, PORT
+    angles = [0, 0, 0, 0]
+    HZ = 4
+    ALL_TIME = 60
+    start_time = time.time()
+    with open("record_data.csv", "w+") as file:
+        file.write("油门,横向,纵向\n")
+        for cnt in range(HZ * ALL_TIME):
+            for i in range(1, 4):
+                # 3个电机
+                for j in range(3):
+                    # 重试三次
+                    CAN.read_single_angel(i)
+                    time.sleep(0.01)
+                    msg = CAN.get_msg()
+                    print("{} WANT_{} MOTOR_{} SINGLE_ANGLE_{}".format("#" * i + "_" * (3 - i), i, msg.motor_id,
+                                                                       msg.single_angle))
+                    if msg.motor_id == i:
+                        angles[i] = DIRECTION[i] * (msg.single_angle - software_zero[i])
+            file.write("{},{},{}\n".format((8.0 + angles[3]), angles[1], angles[2]))  # 8.0 油门自带重力 需要补偿一些
+            angles = [0, 0, 0, 0]
+            diff = 1 / HZ * (cnt + 1) - (time.time() - start_time)
+            if (diff > 0):
+                time.sleep(diff)
 
 
 def set_software_zero():
@@ -260,32 +342,39 @@ bt_activate.grid(row=2, column=2)
 bt_read_angles = tk.Button(window, text='读取当前角度', width=15, height=2, command=read_angles)
 bt_read_angles.grid(row=3, column=0)
 
-bt_close_motors = tk.Button(window, text='关闭电机', width=15, height=2, command=close_motors)
-bt_close_motors.grid(row=3, column=2)
-
 bt_set_zero = tk.Button(window, text='设置当前角度为零位', width=15, height=2, command=set_software_zero)
 bt_set_zero.grid(row=3, column=1)
 
-# bt_stop = tk.Button(window, text='stop', width=15, height=2, command=stop)
-# bt_stop.pack()
+bt_close_motors = tk.Button(window, text='关闭电机', width=15, height=2, command=close_motors)
+bt_close_motors.grid(row=3, column=2)
+
+bt_move_to_zero = tk.Button(window, text='复位到零位', width=15, height=2, command=move_to_zero)
+bt_move_to_zero.grid(row=4, column=0)
+
+bt_record = tk.Button(window, text='开始录制_1min', width=15, height=2, command=record_angles)
+bt_record.grid(row=4, column=1)
+
+bt_move_to_zero_hard = tk.Button(window, text='复位到零位 大力', width=15, height=2, command=move_to_zero_hard)
+bt_move_to_zero_hard.grid(row=4, column=2)
 
 
 # bt_pid = tk.Button(window, text='set pid', width=15, height=1, command=set_pid)
 # bt_pid.pack()
 
+
 bt_encoder = tk.Button(window, text='read_encoder', width=15, height=1, command=read_encoder)
-bt_encoder.grid(row=4, column=0)
+bt_encoder.grid(row=5, column=0)
 
 bt_raw_encoder = tk.Button(window, text='read_raw_encoder', width=15, height=1, command=read_raw_encoder)
-bt_raw_encoder.grid(row=4, column=1)
+bt_raw_encoder.grid(row=5, column=1)
 
 bt_zs_encoder = tk.Button(window, text='read_zs_encoder', width=15, height=1, command=read_zero_shift_encoder)
-bt_zs_encoder.grid(row=4, column=2)
+bt_zs_encoder.grid(row=5, column=2)
 
 bt_open_mul = tk.Button(window, text='bt_open_mul', width=15, height=1, command=open_mul)
-bt_open_mul.grid(row=5, column=0)
+bt_open_mul.grid(row=6, column=0)
 
 bt_close_mul = tk.Button(window, text='bt_close_mul', width=15, height=1, command=close_multi)
-bt_close_mul.grid(row=5, column=1)
+bt_close_mul.grid(row=6, column=1)
 
 window.mainloop()  # 显示
