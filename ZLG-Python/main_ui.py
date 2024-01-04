@@ -283,7 +283,7 @@ def record_angles():
                                                                        msg.single_angle))
                     if msg.motor_id == i:
                         angles[i] = DIRECTION[i] * (msg.single_angle - software_zero[i])
-            file.write("{},{},{}\n".format((8.0 + angles[3]), angles[1], angles[2]))  # 8.0 油门自带重力 需要补偿一些
+            file.write("{},{},{}\n".format((3.5 + angles[3]), angles[1], angles[2]))  # 8.0 油门自带重力 需要补偿一些
             angles = [0, 0, 0, 0]
             diff = 1 / HZ * (cnt + 1) - (time.time() - start_time)
             if (diff > 0):
